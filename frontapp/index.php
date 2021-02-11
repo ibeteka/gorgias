@@ -36,9 +36,14 @@
 			<tbody>
 				<?php
 					require 'conn.php';
-					$query = $conn->query("SELECT * FROM `task` ORDER BY `task_id` ASC");
+					$result = pg_query($conn,"SELECT * FROM task ORDER BY task_id ASC");
+					if (!$result) {
+  						echo "An error occurred.\n";
+  						exit;
+					}
+ 					//$conn->query("SELECT * FROM `task` ORDER BY `task_id` ASC");
 					$count = 1;
-					while($fetch = $query->fetch_array()){
+					while($fetch = pg_fetch_assoc($result)){
 				?>
 				<tr>
 					<td><?php echo $count++?></td>
