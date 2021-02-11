@@ -1,0 +1,44 @@
+   docker run -d --name gorgias -p 8080:80 -it php:latest
+	
+	apt-get update
+    2  apt-get install nano
+    3  apt-get install php-pgsql
+    4  apt-get install php7.3-pgsql/stable
+    5  apt-get install php7.3-common php7.3-pgsql/stable
+    6  apt-get install php7.3-common/stable php7.3-pgsql/stable
+    7  apt-get install apache2
+    8  apt-get install git
+
+  nano /etc/apache2/sites-available/000-default.conf
+   13  service apache2 restart
+
+
+	   apt-get install libapache2-mod-php7
+   30  apt search libapache2-mod-php7
+   31  apt search libapache2-mod-php7.3/stable
+   32  apt-get install libapache2-mod-php7.3/stable
+   33  apt-get install libapache2-mod-php7.3/stable php7.3-json php7.3-opcache php7.3-cli
+   34  apt-get install libapache2-mod-php7.3/stable php7.3-json/stable php7.3-opcache/stable php7.3-cli/stable
+   35  apt-get install php-common
+   36  apt search php-common
+   37  apt search php-common/stable
+   38  apt-get install php-common/stable
+   39  apt-get install libapache2-mod-php7.3/stable php7.3-json/stable php7.3-opcache/stable php7.3-cli/stable
+   40  apt-get install php7.3-readline/stable
+   41  apt-get install libapache2-mod-php7.3/stable php7.3-json/stable php7.3-opcache/stable php7.3-cli/stable
+   42  service apache2 restart
+
+    9  cd /var/www/html/
+   10  git clone https://github.com/ibeteka/gorgias.git
+   25  chown -R www-data:www-data ../html/
+   
+
+   
+   ------------------------------------------------------------------
+    docker run --name postgres -e POSTGRES_PASSWORD=postgres -d postgres
+	
+	apt-get update
+    apt-get install nano git
+	psql -U postgres -d db_task -a -f db.sql
+	psql -U postgres
+	
