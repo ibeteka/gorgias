@@ -8,10 +8,10 @@ App source code is already embeded in the docker image, but you still need to cl
 
 1. Install Ansible (follow the instructions at this link https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html?extIdCarryOver=true&sc_cid=701f2000001OH7YAAW)
 2. download the project gorgias
-3. Open a command line, go in the folder gorgias/ansible and run the command "ansible-playbook deploy.yaml"
+3. Open a command line, go in the folder gorgias/ansible and run the command "ansible-playbook deploy.yml"
  3.bis. If you use kubectl, deploy first services, configmap, pvc and secret before running others object as deployments and statefulset.
         Go to gorgias/kubernetes, deploy files in the instructed order.
-4. Run the job at the end for provisionning the database
+4. Run the job (kubernetes/db-restore.yal) at the end for restoring the database.
 
 For running the app in the browser
 ----------------------------------
