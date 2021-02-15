@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-restore
+spec:
+  template:
+    metadata:
+      name: postgres-restore
+      labels:
+        db: postgres
+    spec:
+      volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+          claimName: task-pv-claim
+      containers:
+      - name: postgres-restore
+        image: postgres:latest
+        command: [ "/bin/sh", "-c", ' echo main-db-svc:5432:"$POSTGRES_DB":"$POSTGRES_USER":"$POSTGRES_PASSWORD" >> /root/.pgpass && chmod 600 /root/.pgpass && psql -h main-db-svc -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /database/db_task.sql' ]
+        env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_PASSWORD        
+        envFrom:
+          - configMapRef:
+              name: postgres-config
+        volumeMounts:
+        - mountPath: database
+          name: task-pv-storage
+      restartPolicy: Never

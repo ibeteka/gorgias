@@ -7,7 +7,7 @@
     5  apt-get install php7.3-common php7.3-pgsql/stable
     6  apt-get install php7.3-common/stable php7.3-pgsql/stable
     7  apt-get install apache2
-    8  apt-get install git
+    8  apt-get install git nano php-pgsql
 
   nano /etc/apache2/sites-available/000-default.conf
    13  service apache2 restart

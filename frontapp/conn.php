@@ -4,7 +4,7 @@
 		die("Error: Cannot connect to the database");
 	}*/
 
-	$conn = pg_connect("host=172.17.0.3 port=5432 dbname=db_task user=postgres password=postgres");
+	$conn = pg_connect("host=main-db-svc port=5432 dbname=db_task user=postgres password=postgres");
 	if(!$conn){
                 die("Error: Cannot connect to the database");
         }

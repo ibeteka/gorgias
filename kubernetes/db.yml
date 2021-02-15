@@ -1,36 +1,34 @@
-apiVersion: v1
-kind: Service
-metadata:
-  name: main-db-svc
-  labels:
-    app: main-db-svc
-spec:
-  selector:
-    app: main-db-svc
-  ports:
-  - port: 5432
-    name: web
-
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres
+  labels:
+    db: postgres
 spec:
   selector:
     matchLabels:
       app: main-db-svc # has to match .spec.template.metadata.labels
   serviceName: "main-db-svc"
-  replicas: 2 # by default is 1
+  replicas: 2
   template:
     metadata:
       labels:
         app: main-db-svc # has to match .spec.selector.matchLabels
     spec:
+      volumes:
+      - name: task-pv-storage
+        persistentVolumeClaim:
+          claimName: task-pv-claim
       terminationGracePeriodSeconds: 10
       containers:
       - name: postgres
-        image: ibrahimtounkaradevgorgias/gorgias_db:1.0
+        image: postgres:latest
+        envFrom:
+          - configMapRef:
+              name: postgres-config
+        volumeMounts:
+        - mountPath: database
+          name: task-pv-storage
         ports:
         - containerPort: 5432
           name: postgres-port
