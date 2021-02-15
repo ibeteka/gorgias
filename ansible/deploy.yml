@@ -1,0 +1,282 @@
+# Setting host
+- hosts: localhost
+  gather_facts: false
+#Variables
+  vars:
+    ansible_python_interpreter: '{{ ansible_playbook_python }}'
+    image_name: postgres
+    image_tag: latest
+# Pre-Tasks to validate if Minikube is running
+  pre_tasks:
+    - name: Check Minikube's status.
+      command: minikube status
+      register: minikube_status
+      changed_when: false
+      ignore_errors: true
+    # Otherwise will start minikube
+    - name: Start Minikube if it's not running.
+      command: minikube start
+      when: "not minikube_status.stdout or 'Running' not in minikube_status.stdout"
+# Check existing images
+  tasks:
+    - name: Get existing image hash.
+      shell: |
+        eval $(minikube docker-env)
+        docker images -q {{ image_name }}
+      register: image_hash
+      changed_when: false
+# Otherwise will pull image from repo
+    - name: Pull image if it's not already there.
+      shell: |
+        eval $(minikube docker-env)
+        docker pull {{ image_name }}
+      when: not image_hash.stdout
+# Create Kubernetes resources 
+    - name: Create a Deployment for postgres
+      k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: postgres
+            labels:
+             db: postgres
+        spec:
+          selector:
+            matchLabels:
+              app: main-db-svc # has to match .spec.template.metadata.labels
+          serviceName: "main-db-svc"
+          replicas: 2
+          template:
+            metadata:
+              labels:
+                app: main-db-svc # has to match .spec.selector.matchLabels
+            spec:
+              volumes:
+              - name: task-pv-storage
+                persistentVolumeClaim:
+                  claimName: task-pv-claim
+              terminationGracePeriodSeconds: 10
+              containers:
+              - name: "{{image_name}}:{{image_tag}}"
+                image: postgres:latest
+                envFrom:
+                  - configMapRef:
+                      name: postgres-config
+                volumeMounts:
+                - mountPath: database
+                  name: task-pv-storage
+                ports:
+                - containerPort: 5432
+                  name: postgres-port
+    - name: Create a Deployment for frontapp
+      k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: gorgias-front-deployment
+              labels:
+                app: front
+            spec:
+              replicas: 3
+              selector:
+                matchLabels:
+                  app: front
+              template:
+                metadata:
+                  labels:
+                    app: front
+                spec:
+                  containers:
+                  - name: frontapp
+                    image: ibrahimtounkaradevgorgias/gorgias_front:1.0
+                    envFrom:
+                      - configMapRef:
+                          name: postgres-config
+                    stdin: true
+                    tty: true
+                    livenessProbe:
+                      exec:
+                        command:
+                        - /bin/bash
+                        - "-c"
+                        - service apache2 start
+                      initialDelaySeconds: 10
+                    ports:
+                    - containerPort: 80
+                  imagePullSecrets:
+                  - name: docker-hub-cred
+
+# Create Kubernetes persistentVolume
+    - name: Create persistentVolume and claim
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+            kind: PersistentVolume
+            metadata:
+              name: task-pv-volume
+              labels:
+                type: local
+            spec:
+              storageClassName: manual
+              capacity:
+                storage: 10Gi
+              accessModes:
+                - ReadWriteMany
+              hostPath:
+                path: "/database"
+                
+            ---
+            apiVersion: v1
+            kind: PersistentVolumeClaim
+            metadata:
+              name: task-pv-claim
+            spec:
+              storageClassName: manual
+              accessModes:
+                - ReadWriteMany
+              resources:
+                requests:
+                  storage: 3Gi
+# Create Postgres restoration
+    - name: Create Job
+      k8s:
+        state: present
+        definition:
+          apiVersion: batch/v1
+            kind: Job
+            metadata:
+              name: postgres-restore
+            spec:
+              template:
+                metadata:
+                  name: postgres-restore
+                  labels:
+                    db: postgres
+                spec:
+                  volumes:
+                  - name: task-pv-storage
+                    persistentVolumeClaim:
+                      claimName: task-pv-claim
+                  containers:
+                  - name: postgres-restore
+                    image: postgres:latest
+                    command: [ "/bin/sh", "-c", ' echo main-db-svc:5432:"$POSTGRES_DB":"$POSTGRES_USER":"$POSTGRES_PASSWORD" >> /root/.pgpass && chmod 600 /root/.pgpass && psql -h main-db-svc -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /database/db_task.sql' ]
+                    env:
+                        - name: POSTGRES_DB
+                          valueFrom:
+                            configMapKeyRef:
+                              name: postgres-config
+                              key: POSTGRES_DB
+                        - name: POSTGRES_USER
+                          valueFrom:
+                            configMapKeyRef:
+                              name: postgres-config
+                              key: POSTGRES_USER
+                        - name: POSTGRES_PASSWORD
+                          valueFrom:
+                            configMapKeyRef:
+                              name: postgres-config
+                              key: POSTGRES_PASSWORD        
+                    envFrom:
+                      - configMapRef:
+                          name: postgres-config
+                    volumeMounts:
+                    - mountPath: database
+                      name: task-pv-storage
+                  restartPolicy: Never
+# Create Kubernetes ConfigMap
+    - name: Create a ConfigMap
+      k8s:
+        state: present
+        definition:
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: postgres-config
+              labels:
+                app: postgres
+            data:
+              POSTGRES_HOST: main-db-svc
+              POSTGRES_DB: db_task
+              POSTGRES_USER: postgres
+              POSTGRES_PASSWORD: postgres
+# Create Kubernetes secret for docker registry
+    - name: Create a Secret.
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+            kind: Secret
+            metadata:
+              name: secret-dockercfg
+            type: kubernetes.io/dockercfg
+            data:
+              .dockercfg: |
+                    "<base64 encoded ~/gorgias/kubernetes/.dockerconfigjson>"
+# Create Kubernetes Service 
+    - name: Create Services
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: replica-db-svc
+              labels:
+                app: replica-db-svc
+          spec:
+            ports:
+            - port: 5432
+              targetPort: 5433
+            selector:
+              app: main-db-svc
+
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: front-svc
+          labels:
+            app: front-svc
+        spec:
+          type: NodePort
+          selector:
+            app: front
+          ports:
+          - port: 80
+            targetPort: 80
+            nodePort: 30007
+            
+        ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: main-db-svc
+          labels:
+            app: main-db-svc
+        spec:
+          ports:
+          - port: 5432
+            targetPort: 5432
+          selector:
+            app: main-db-svc
+post_tasks:
+    #Example export using minikube services
+    - name: Expose Hello Go on the host via Minikube.
+      command: minikube service hello-go --url=true
+      changed_when: false
+      register: minikube_service
+    - debug:
+        msg: "Hello Go URL: {{ minikube_service['stdout_lines'][0] }}"
+- name: Verify Hello Go is responding.
+      uri:
+        url: "{{ minikube_service['stdout_lines'][0] }}/test"
+        return_content: true
+      register: hello_go_response
+      failed_when: "'/test' not in hello_go_response.content"
+- debug:
+        msg: "Testing URL Hello GO Requested: {{hello_go_response.content}} Status: {{hello_go_response.status}}"
