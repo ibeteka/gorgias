@@ -1,13 +1,18 @@
-PHP / apache Front app todolist. The app has been tested and deployed on local kubernetes cluster (Minikube)
+PHP / apache Front app todolist. The app has been tested and deployed on a local Windows based kubernetes cluster (Minikube)
 
 For deploying
 ------------
 Use the ansible playbook (deploy.yaml) stored in the ansible folder.
 Or deploy with the kubectl command. Make sure to have your docker credentials (they are already in the secret file)
-App source code is already embeded in the docker image, but you can also clone the project from github with your credentials
-1. deploy services, configmap, pvc and secret before running others object as deployments, statefulset
-2. Run the job at the end for provisionning the database
+App source code is already embeded in the docker image, but you still need to clone the all project for the deployment
+
+1. Install Ansible (follow the instructions at this link https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html?extIdCarryOver=true&sc_cid=701f2000001OH7YAAW)
+2. download the project gorgias
+3. Open a command line, go in the folder gorgias/ansible and run the command "ansible-playbook deploy.yaml"
+ 3.bis. If you use kubectl, deploy first services, configmap, pvc and secret before running others object as deployments and statefulset.
+        Go to gorgias/kubernetes, deploy files in the instructed order.
+4. Run the job at the end for provisionning the database
 
 For running the app in the browser
 ----------------------------------
-run " minikube service list " to get the ip:port (port should be 30007)
+In a shell command line, run " minikube service list " to get the ip:port (port should be 30007) of the front App.
