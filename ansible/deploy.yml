@@ -213,7 +213,7 @@
           apiVersion: v1
             kind: Secret
             metadata:
-              name: secret-dockercfg
+              name: docker-hub-cred
             type: kubernetes.io/dockercfg
             data:
               .dockercfg: |
